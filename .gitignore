@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+.venv312/
+venv/
+env/
+
+# Secrets — never commit
+.env
+backend/.env
+*.pem
+*.key
+
+# Generated runtime data (prediction cache, local gazetteer builds)
+backend/app/data/generated/prediction_cache/
+backend/app/data/generated/*.json
+!backend/app/data/generated/.gitignore
+
+# OS / IDE (optional local tooling)
+.DS_Store
+.idea/
+.vscode/
+.cursor/
+.claude/
+.kiro/
+
+# Model / HF cache (if stored locally)
+.cache/
+models/
+*.pt
+*.bin
+*.safetensors
+
+# Logs
+*.log

@@ -1,0 +1,52 @@
+# Photo Geolocation FastAPI Backend
+
+# Web Framework
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+
+# Configuration
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Image Processing
+Pillow>=10.1.0
+numpy>=1.26.0
+scipy>=1.11.0
+
+# Neural vision (multi-model fusion, cue panels):
+torch>=2.1.0
+torchvision>=0.16.0
+transformers>=4.36.0
+safetensors>=0.4.0
+geoclip>=1.2.0
+geopy>=2.4.0
+pandas>=2.0.0
+# tensorflow==2.14.0
+# onnxruntime==1.17.0
+
+# Optional: EXIF handling
+# piexif==1.1.3
+
+# Optional: sign/text OCR for feature_analysis (system package: tesseract)
+# pytesseract>=0.3.10
+
+# Optional: Vector DB (Faiss IP index for optional geotagged retrieval; see FAISS_GEOTAG_* in .env.example)
+# faiss-cpu==1.7.4
+# weaviate-client==4.0.0
+
+# Optional: Maps & Geocoding
+# googlemaps==4.10.0
+
+# Development & Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+
+# Logging & Monitoring
+python-json-logger==2.0.7
+
+# Code Quality
+black==23.12.0
+flake8==6.1.0
+isort==5.13.2

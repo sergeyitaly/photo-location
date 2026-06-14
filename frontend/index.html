@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Geolocation System</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" sizes="any">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="layout-compact">
+    <div id="gazetteerStartupBanner" class="gazetteer-startup-banner" style="display:none;" role="status" aria-live="polite">
+        <span class="gazetteer-startup-banner__spin" aria-hidden="true"></span>
+        <span id="gazetteerStartupBannerText"></span>
+    </div>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>📍 Photo Geolocation</h1>
+            <p class="subtitle">Worldwide vision geolocation + optional GeoNames gazetteer</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Pipeline Diagram (collapsed by default; mini pipeline shows in progress overlay) -->
+            <section class="pipeline-section" id="pipelineSection">
+                <details class="pipeline-details">
+                    <summary class="pipeline-summary">
+                        <span class="pipeline-summary__title">🔄 Pipeline Flow</span>
+                        <span class="pipeline-summary__hint">How we identify location from a photo</span>
+                    </summary>
+                    <div class="pipeline-container" id="pipelineContainer">
+                        <!-- Stage 1: Input -->
+                        <div class="pipeline-stage" data-stage="input">
+                            <div class="pipeline-stage__header">
+                                <span class="pipeline-stage__icon">📸</span>
+                                <span class="pipeline-stage__name">INPUT</span>
+                            </div>
+                            <div class="pipeline-node">
+                                <div class="pipeline-node__box">
+                                    <span class="pipeline-node__label">Photo</span>
+                                    <span class="pipeline-node__detail">JPEG / PNG</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pipeline-arrow">→</div>
+
+                        <!-- Stage 2: Parse -->
+                        <div class="pipeline-stage" data-stage="parse">
+                            <div class="pipeline-stage__header">
+                                <span class="pipeline-stage__icon">📋</span>
+                                <span class="pipeline-stage__name">PARSE</span>
+                            </div>
+                            <div class="pipeline-node">
+                                <div class="pipeline-node__box">
+                                    <span class="pipeline-node__label">Request Parse</span>
+                                    <span class="pipeline-node__detail">Decode image bytes</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pipeline-arrow">→</div>
+
+                        <!-- Stage 3: EXIF Check -->
+                        <div class="pipeline-stage pipeline-stage--checkpoint" data-stage="exif">
+                            <div class="pipeline-stage__header">
+                                <span class="pipeline-stage__icon">🛰️</span>
+                                <span class="pipeline-stage__name">EXIF CHECK</span>
+                            </div>
+                            <div class="pipeline-node">
+                                <div class="pipeline-node__box pipeline-node__box--decision">
+                                    <span class="pipeline-node__label">GPS in EXIF?</span>
+                                    <span class="pipeline-node__detail">If yes → return immediately</span>
+                                    <span class="pipeline-node__badge pipeline-node__badge--ground-truth">Ground Truth</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pipeline-arrow pipeline-arrow--branch">↓</div>
+
+                        <!-- Stage 4: Filename Hint -->
+                        <div class="pipeline-stage pipeline-stage--checkpoint" data-stage="filename">
+                            <div class="pipeline-stage__header">
+                                <span class="pipeline-stage__icon">📝</span>
+                                <span class="pipeline-stage__name">FILENAME HINT</span>
+                            </div>
+                            <div class="pipeline-node">
+                                <div class="pipeline-node__box pipeline-node__box--decision">
+                                    <span class="pipeline-node__label">Location in name?</span>
+                                    <span class="pipeline-node__detail">Keyword match → early return</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pipeline-arrow pipeline-arrow--branch">↓</div>
+
+                        <!-- Stage 5: Feature Extraction -->
+                        <div class="pipeline-stage" data-stage="features">
+                            <div class="pipeline-stage__header">
+                                <span class="pipeline-stage__icon">🔍</span>
+                                <span class="pipeline-stage__name">FEATURE EXTRACTION</span>
+                            </div>
+                            <div class="pipeline-nodes-grid">
+                                <div class="pipeline-node__box pipeline-node__box--sub">
+                                    <span class="pipeline-node__label">Vegetation</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--sub">
+                                    <span class="pipeline-node__label">Architecture</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--sub">
+                                    <span class="pipeline-node__label">Text (OCR)</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--sub">
+                                    <span class="pipeline-node__label">Weather</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--sub">
+                                    <span class="pipeline-node__label">Infrastructure</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--sub">
+                                    <span class="pipeline-node__label">Shadows</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--sub">
+                                    <span class="pipeline-node__label">Poles</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--sub">
+                                    <span class="pipeline-node__label">Road Lines</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pipeline-arrow pipeline-arrow--branch">↓</div>
+
+                        <!-- Stage 6: Vision Inference (Ensemble) -->
+                        <div class="pipeline-stage pipeline-stage--major" data-stage="inference">
+                            <div class="pipeline-stage__header">
+                                <span class="pipeline-stage__icon">🧠</span>
+                                <span class="pipeline-stage__name">VISION INFERENCE</span>
+                                <span class="pipeline-stage__subtitle">Ensemble Fusion</span>
+                            </div>
+                            <div class="pipeline-nodes-grid pipeline-nodes-grid--wide">
+                                <div class="pipeline-node__box pipeline-node__box--model">
+                                    <span class="pipeline-node__label">CLIP Classifier</span>
+                                    <span class="pipeline-node__detail">Country / landmark softmax</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--model">
+                                    <span class="pipeline-node__label">CLIP Retrieval</span>
+                                    <span class="pipeline-node__detail">Image similarity search</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--model">
+                                    <span class="pipeline-node__label">Grid Search</span>
+                                    <span class="pipeline-node__detail">Multi-resolution scan</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--model">
+                                    <span class="pipeline-node__label">GeoCLIP</span>
+                                    <span class="pipeline-node__detail">Contrastive GPS gallery</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--model">
+                                    <span class="pipeline-node__label">StreetCLIP</span>
+                                    <span class="pipeline-node__detail">Zero-shot gazetteer</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--fusion">
+                                    <span class="pipeline-node__label">🔀 Fusion</span>
+                                    <span class="pipeline-node__detail">Weighted merge + dedupe + reconcile</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pipeline-arrow pipeline-arrow--branch">↓</div>
+
+                        <!-- Stage 7: Optional Modules -->
+                        <div class="pipeline-stage" data-stage="optional">
+                            <div class="pipeline-stage__header">
+                                <span class="pipeline-stage__icon">🧩</span>
+                                <span class="pipeline-stage__name">OPTIONAL MODULES</span>
+                                <span class="pipeline-stage__subtitle">If not fast prediction</span>
+                            </div>
+                            <div class="pipeline-nodes-grid">
+                                <div class="pipeline-node__box pipeline-node__box--sub">
+                                    <span class="pipeline-node__label">Cross-ref DB</span>
+                                    <span class="pipeline-node__detail">Local gazetteer</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--sub">
+                                    <span class="pipeline-node__label">External Validation</span>
+                                    <span class="pipeline-node__detail">Wikipedia + OpenTopoData</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--sub">
+                                    <span class="pipeline-node__label">Reverse Geocode</span>
+                                    <span class="pipeline-node__detail">Nominatim OSM</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pipeline-arrow pipeline-arrow--branch">↓</div>
+
+                        <!-- Stage 8: Additional Analysis -->
+                        <div class="pipeline-stage" data-stage="analysis">
+                            <div class="pipeline-stage__header">
+                                <span class="pipeline-stage__icon">🔬</span>
+                                <span class="pipeline-stage__name">ADDITIONAL ANALYSIS</span>
+                            </div>
+                            <div class="pipeline-nodes-grid">
+                                <div class="pipeline-node__box pipeline-node__box--sub">
+                                    <span class="pipeline-node__label">Globe Regional</span>
+                                    <span class="pipeline-node__detail">Macro region hints</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--sub">
+                                    <span class="pipeline-node__label">Scene Cues</span>
+                                    <span class="pipeline-node__detail">Pixel + list metrics</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--sub">
+                                    <span class="pipeline-node__label">ML Recognition</span>
+                                    <span class="pipeline-node__detail">CLIP softmax labels</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--sub">
+                                    <span class="pipeline-node__label">Infra & Energy</span>
+                                    <span class="pipeline-node__detail">Grid, solar, wind</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pipeline-arrow pipeline-arrow--branch">↓</div>
+
+                        <!-- Stage 9: Geo-Reasoning Engine -->
+                        <div class="pipeline-stage pipeline-stage--major" data-stage="reasoning">
+                            <div class="pipeline-stage__header">
+                                <span class="pipeline-stage__icon">⚙️</span>
+                                <span class="pipeline-stage__name">GEO-REASONING ENGINE</span>
+                            </div>
+                            <div class="pipeline-nodes-grid pipeline-nodes-grid--wide">
+                                <div class="pipeline-node__box pipeline-node__box--reasoning">
+                                    <span class="pipeline-node__label">📥 Collect Cues</span>
+                                    <span class="pipeline-node__detail">All detectors + OCR + vegetation + infra + scene</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--reasoning">
+                                    <span class="pipeline-node__label">🚫 Country Elimination</span>
+                                    <span class="pipeline-node__detail">Rule-based intersection</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--reasoning">
+                                    <span class="pipeline-node__label">📊 Bayesian Reasoner</span>
+                                    <span class="pipeline-node__detail">Probabilistic posteriors</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--reasoning">
+                                    <span class="pipeline-node__label">🌙 Astronomy Solver</span>
+                                    <span class="pipeline-node__detail">Shadow → latitude bounds</span>
+                                </div>
+                                <div class="pipeline-node__box pipeline-node__box--fusion">
+                                    <span class="pipeline-node__label">🔄 Apply & Re-rank</span>
+                                    <span class="pipeline-node__detail">Boost / penalize candidates</span>
+                                </div>
+                            </div>
+                        </div>
+
+<div class="pipeline-arrow pipeline-arrow--branch">↓</div>
+
+
+                    </div>
+                    <!-- Live execution indicator -->
+                    <div class="pipeline-execution" id="pipelineExecution" style="display:none;">
+                        <div class="pipeline-execution__label">Currently executing:</div>
+                        <div class="pipeline-execution__stage" id="pipelineExecutionStage">—</div>
+                        <div class="pipeline-execution__bar">
+                            <div class="pipeline-execution__progress" id="pipelineExecutionProgress"></div>
+                        </div>
+                    </div>
+                </details>
+            </section>
+
+            <!-- Upload Section -->
+            <section class="upload-section">
+                <h2>Upload</h2>
+                
+                <label class="upload-area" id="uploadArea">
+                    <input
+                        type="file"
+                        id="fileInput"
+                        class="upload-area__file-input"
+                        accept="image/jpeg,image/png,image/webp,image/*"
+                    >
+                    <div class="upload-area__content">
+                        <div class="upload-icon">📸</div>
+                        <p class="upload-text"><strong>Drop a photo here</strong> or click to browse</p>
+                        <p class="upload-hint">JPEG or PNG · Up to 10 MB</p>
+                    </div>
+                </label>
+                
+                <div id="previewContainer" class="preview-container" style="display:none;">
+                    <img id="preview" class="preview-image" alt="Preview">
+                    <p id="fileName" class="file-name"></p>
+                </div>
+
+                <details class="panel-compact" id="predictOptionsPanel" open>
+                    <summary class="panel-compact__summary">Prediction options (all enabled = maximum accuracy)</summary>
+                    <div class="checkbox-grid">
+                <label class="checkbox-row checkbox-row--emphasis">
+                    <input type="checkbox" id="fastPrediction" checked>
+                    <span><strong>Fast prediction</strong> — skips grid search, heavy validation, and geocoding (Ollama detective still runs if enabled below)</span>
+                </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="clearPredictionCache">
+                    <span><strong>Clear prediction cache</strong> — ignore/delete saved result for this image and run a full new analysis</span>
+                </label>
+                <label class="checkbox-row checkbox-row--emphasis">
+                    <input type="checkbox" id="includeLlmDetective" checked>
+                    <span><strong>Ollama detective</strong> — local LLM key thoughts right after vision (<code>ollama serve</code> must be running)</span>
+                </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="includeFeatureAnalysis" checked>
+                    <span>Feature analysis — vegetation, architecture, OCR, weather, infrastructure, shadows, poles, road lines</span>
+                </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="includeGlobeRegionalHints" checked>
+                    <span>Globe regional CLIP cues (macro regions; pin unchanged)</span>
+                </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="includeSceneGeolocationCues" checked>
+                    <span>Scene cue bundle (pixels + lists; collapses when panels duplicate)</span>
+                </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="includeCulturalEconomicVisualCues" checked>
+                    <span>Built-form / façade CLIP banks (speculative; not GDP/culture)</span>
+                </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="includeExternalValidation" checked>
+                    <span>External validation — Wikipedia + SRTM cross-check on candidates</span>
+                </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="includeMlImageRecognition" checked>
+                    <span>ML recognition panel (CLIP softmax; needs PyTorch)</span>
+                </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="includeInfrastructureEnergyCues" checked>
+                    <span>Infrastructure &amp; energy CLIP cues (grid, solar, wind proxies)</span>
+                </label>
+                    </div>
+                </details>
+
+                <button id="predictBtn" class="btn btn-primary" disabled>
+                    Predict Location
+                </button>
+                <button id="clearBtn" class="btn btn-secondary" style="display:none;">
+                    Clear
+                </button>
+
+                <!-- Inline progress on main page (no pipeline diagram) -->
+                <section id="predictProgress" class="predict-progress" style="display:none;" aria-live="polite" aria-busy="false">
+                    <div class="predict-progress__head">
+                        <h3 id="predictProgressTitle" class="predict-progress__title">Finding location</h3>
+                        <span id="predictProgressPercent" class="predict-progress__percent"></span>
+                    </div>
+                    <p id="predictProgressMessage" class="predict-progress__message"></p>
+                    <div class="predict-progress__track" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                        <div id="predictProgressBar" class="predict-progress__bar predict-progress__bar--indeterminate"></div>
+                    </div>
+                    <div id="predictProgressLive" class="predict-progress__live"></div>
+                    <p id="predictProgressMeta" class="predict-progress__meta"></p>
+                </section>
+            </section>
+
+            <!-- Results Section -->
+            <section id="resultsSection" class="results-section" style="display:none;">
+                <h2>Prediction Results</h2>
+
+                <!-- Source notice (dynamic) -->
+                <div id="sourceNotice" class="source-notice" style="display:none;" role="status"></div>
+
+                <!-- Prominent summary card (built by JS) -->
+                <div id="resultsSummaryCard" class="results-summary-card" style="display:none;" role="region" aria-label="Primary prediction summary"></div>
+
+                <!-- Primary Prediction -->
+                <div class="prediction-card primary-prediction">
+                    <h3>🎯 Primary Prediction</h3>
+
+                    <div class="prediction-info">
+                        <div class="info-row">
+                            <span class="label">Country:</span>
+                            <span id="primaryCountry" class="value">—</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">City:</span>
+                            <span id="primaryCity" class="value">—</span>
+                        </div>
+                        <div class="info-row" id="resolvedPlaceRow" style="display: none;">
+                            <span class="label">Resolved place (OSM):</span>
+                            <span id="resolvedPlaceValue" class="value">—</span>
+                        </div>
+                        <p id="resolvedPlaceNote" class="accuracy-note" style="display: none;" role="note"></p>
+                        <div class="info-row">
+                            <span class="label">Coordinates:</span>
+                            <span id="primaryCoords" class="value">—</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Confidence:</span>
+                            <div class="confidence-bar">
+                                <div id="primaryConfidence" class="confidence-fill" style="width: 0%"></div>
+                            </div>
+                            <span id="primaryConfidenceText" class="value">—</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Model Used:</span>
+                            <span id="modelUsed" class="value">—</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Processing Time:</span>
+                            <span id="processingTime" class="value">—</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Coordinate source:</span>
+                            <span id="coordinateSource" class="value">—</span>
+                        </div>
+                    </div>
+                    <p id="geopositionAccuracyNote" class="accuracy-note" style="display:none;" role="note"></p>
+                    <div id="manualVerificationBlock" class="manual-verification" style="display:none;" role="region" aria-label="Manual verification guide">
+                        <h4 class="manual-verification__title">Verify before you trust</h4>
+                        <p id="manualVerificationScope" class="manual-verification__scope"></p>
+                        <ol id="manualVerificationChecklist" class="manual-verification__list"></ol>
+                        <p id="manualVerificationLinks" class="manual-verification__links"></p>
+                    </div>
+                    <div id="readingAxesBlock" class="reading-axes" style="display:none;" role="region" aria-label="View, buildings, Wikipedia lens">
+                        <h4 class="reading-axes__title">Reading this pin</h4>
+                        <ul class="reading-axes__list">
+                            <li><span class="reading-axes__k">View</span> <span id="readingAxisView" class="reading-axes__v"></span></li>
+                            <li><span class="reading-axes__k">Buildings</span> <span id="readingAxisBuildings" class="reading-axes__v"></span></li>
+                            <li><span class="reading-axes__k">Wikipedia estimate</span> <span id="readingAxisWiki" class="reading-axes__v"></span></li>
+                        </ul>
+                        <p class="reading-axes__footnote">Geometry cues are pixel-only; Wikipedia line summarizes open-data checks — not ground truth.</p>
+                    </div>
+                    <div id="externalValidationBlock" class="external-validation" style="display:none;" role="region" aria-label="Wikipedia and relief validation">
+                        <h4 class="external-validation__title">Open-data cross-check (Wikipedia + relief)</h4>
+                        <div id="externalValidationContent" class="external-validation__content"></div>
+                    </div>
+                    <div id="mlRecognitionBlock" class="ml-recognition" style="display:none;" role="region" aria-label="CLIP image recognition">
+                        <h4 class="ml-recognition__title">ML image recognition (CLIP)</h4>
+                        <div id="mlRecognitionContent" class="ml-recognition__content"></div>
+                    </div>
+                    <div id="infrastructureEnergyBlock" class="infra-energy" style="display:none;" role="region" aria-label="Infrastructure and energy cues">
+                        <h4 class="infra-energy__title">Infrastructure &amp; energy (CLIP)</h4>
+                        <div id="infrastructureEnergyContent" class="infra-energy__content"></div>
+                    </div>
+
+                    <!-- Satellite Match -->
+                    <div id="satelliteMatchBlock" class="satellite-match" style="display:none;" role="region" aria-label="Satellite reverse match">
+                        <h4 class="satellite-match__title">🛰️ Satellite match</h4>
+                        <div id="satelliteMatchContent" class="satellite-match__content"></div>
+                    </div>
+
+                    <!-- LLM Detective -->
+                    <div id="llmDetectiveBlock" class="llm-detective" style="display:none;" role="region" aria-label="LLM detective reasoning">
+                        <h4 class="llm-detective__title">🕵️ Detective reasoning (local LLM)</h4>
+                        <div id="llmDetectiveContent" class="llm-detective__content"></div>
+                    </div>
+
+                    <!-- Street View Verification -->
+                    <div id="streetviewVerifyBlock" class="streetview-verify" style="display:none;" role="region" aria-label="Street View visual verification">
+                        <h4 class="streetview-verify__title">🚗 Street View verification</h4>
+                        <div id="streetviewVerifyContent" class="streetview-verify__content"></div>
+                    </div>
+
+                    <!-- Map Embed -->
+                    <div id="mapContainer" class="map-container"></div>
+                </div>
+
+                <!-- Alternative Predictions -->
+                <div id="alternativesContainer" style="display:none;">
+                    <h3>📍 Alternative Predictions</h3>
+                    <div id="alternativesList" class="alternatives-list"></div>
+                </div>
+
+                <!-- Feature Analysis -->
+                <div id="featuresContainer" class="prediction-card" style="display:none;">
+                    <h3>🔍 Feature Analysis</h3>
+                    <div id="featuresList" class="features-list"></div>
+                </div>
+
+                <div id="globeRegionalHintsBlock" class="prediction-card prediction-card--globe-collapsed" style="display:none;">
+                    <details id="globeRegionalHintsDetails" class="globe-regional-details">
+                        <summary class="globe-regional-summary">
+                            <span class="globe-regional-summary__title">🌍 Globe regional cues (CLIP softmax)</span>
+                            <span class="globe-regional-summary__hint">Hidden — click to expand regional diagnostics</span>
+                        </summary>
+                        <div class="globe-regional-details__inner">
+                            <p class="globe-disclaimer">
+                                Relative scores inside each category only (not blended across regions).
+                                Requires <code>torch</code> + <code>transformers</code> on the server for live softmax.
+                            </p>
+                            <div id="globeRegionalHintsSections"></div>
+                        </div>
+                    </details>
+                </div>
+
+                <div id="sceneGeolocationCuesBlock" class="prediction-card" style="display:none;">
+                    <h3>🌿 Scene geolocation cues (supplement)</h3>
+                    <p class="scene-cues-disclaimer">
+                        Extra pixel metrics and merged cue lists from the lightweight pipeline. If Architecture, Plants, Globe regional, Season/light, or Flower/road hints already appear above, this card collapses to metrics + summary only so lists are not duplicated on screen (full data stays in downloaded JSON).
+                    </p>
+                    <div id="sceneGeolocationCuesContent"></div>
+                </div>
+
+                <!-- Actions -->
+                <div class="actions">
+                    <button id="uploadAnotherBtn" class="btn btn-primary">
+                        Upload Another Photo
+                    </button>
+                    <button id="downloadBtn" class="btn btn-secondary">
+                        Download Results
+                    </button>
+                </div>
+            </section>
+
+            <!-- Info Section -->
+            <section class="info-section info-section--compact">
+                <h2>About</h2>
+                <div class="info-grid info-grid--compact">
+                    <div class="info-card info-card--compact">
+                        <h3>Models</h3>
+                        <p>GeoCLIP, StreetCLIP, CLIP zero-shot fusion</p>
+                    </div>
+                    <div class="info-card info-card--compact">
+                        <h3>Cues</h3>
+                        <p>Landmarks, vegetation, architecture, OCR, regional softmax</p>
+                    </div>
+                    <div class="info-card info-card--compact">
+                        <h3>Privacy</h3>
+                        <p>Prefer local inference; configure APIs in backend</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2026 Photo Geolocation System. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <!-- Full-screen progress (required by showProgress() in app.js) -->
+    <div
+        id="globalProgress"
+        class="global-progress"
+        style="display: none"
+        role="alertdialog"
+        aria-modal="true"
+        aria-busy="false"
+        aria-labelledby="globalProgressTitle"
+    >
+        <div class="global-progress__backdrop" aria-hidden="true"></div>
+        <div class="global-progress__panel global-progress__panel--with-pipeline">
+            <div class="global-progress__top">
+                <div class="global-progress__spinner" aria-hidden="true"></div>
+                <p id="globalProgressPhase" class="global-progress__phase"></p>
+                <h3 id="globalProgressTitle" class="global-progress__title">Working…</h3>
+                <p id="globalProgressDetail" class="global-progress__detail"></p>
+                <ul id="globalProgressChecklist" class="global-progress__checklist" aria-live="polite"></ul>
+                <p id="globalProgressHint" class="global-progress__hint"></p>
+                <p id="globalProgressTime" class="global-progress__time" aria-live="polite"></p>
+                <div class="global-progress__track" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                    <div
+                        id="globalProgressBar"
+                        class="global-progress__bar global-progress__bar--indeterminate"
+                    ></div>
+                </div>
+            </div>
+            <!-- Live pipeline inside progress overlay -->
+            <div class="global-progress__pipeline" id="globalProgressPipeline">
+                <div class="global-progress__pipeline-label">Pipeline execution:</div>
+                <div class="pipeline-mini" id="pipelineMini"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v=20260519c"></script>
+</body>
+</html>
