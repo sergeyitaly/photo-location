@@ -65,6 +65,7 @@ from app.services.reverse_geocode import (
 from app.services.llm_detective import run_llm_detective
 from app.services.satellite_matcher import satellite_reverse_match
 from app.services.streetview_matcher import streetview_verify_predictions
+from app.services.ui_response_enrichment import enrich_prediction_ui_fields
 from app.services.prediction_cache import (
     delete_cached_prediction,
     get_cached_prediction,
@@ -177,13 +178,24 @@ async def get_public_config():
         "ollama_url": ollama_url,
         "ollama_model": getattr(settings, "ollama_model", DEFAULT_MODEL),
         "use_llm_detective": getattr(settings, "use_llm_detective", True),
-        "use_satellite_matching": getattr(settings, "use_satellite_matching", True),
+        "use_satellite_matching": settings.use_satellite_matching,
         "streetview_api_configured": bool(
             getattr(settings, "google_maps_api_key", None)
             and str(getattr(settings, "google_maps_api_key", "")).strip().lower()
             not in ("", "none", "null")
         ),
-        "use_streetview_verification": getattr(settings, "use_streetview_verification", True),
+        "google_maps_configured": bool(
+            getattr(settings, "google_maps_api_key", None)
+            and str(getattr(settings, "google_maps_api_key", "")).strip().lower()
+            not in ("", "none", "null")
+        ),
+        "use_streetview_verification": settings.use_streetview_verification,
+        "streetclip_installed": is_transformers_streetclip_available(),
+        "vision_ml_note": (
+            "Install torch, torchvision, transformers, geoclip for full vision fusion."
+            if not is_globe_clip_runtime_available()
+            else ""
+        ),
         "use_prediction_cache": getattr(settings, "use_prediction_cache", True),
         "prediction_cache_ttl_seconds": getattr(settings, "prediction_cache_ttl_seconds", 86400),
         "prediction_cache_max_entries": getattr(settings, "prediction_cache_max_entries", 1000),
@@ -784,7 +796,12 @@ Locale: set ``reverse_geocode_accept_language`` or standard ``Accept-Language`` 
 
         # ------------------------------------------------------------------
         satellite_match: Dict[str, Any] | None = None
-        if _is_vision_fusion_result(model_used) and not fast_prediction and primary_prediction:
+        if (
+            settings.use_satellite_matching
+            and _is_vision_fusion_result(model_used)
+            and not fast_prediction
+            and primary_prediction
+        ):
             progress_tracker.update_step("satellite_match")
             t0 = time.perf_counter()
             try:
@@ -820,7 +837,12 @@ Locale: set ``reverse_geocode_accept_language`` or standard ``Accept-Language`` 
         # NEW: Street View visual verification (highest-accuracy signal)
         # ------------------------------------------------------------------
         streetview_verification: Dict[str, Any] | None = None
-        if _is_vision_fusion_result(model_used) and not fast_prediction and primary_prediction:
+        if (
+            settings.use_streetview_verification
+            and _is_vision_fusion_result(model_used)
+            and not fast_prediction
+            and primary_prediction
+        ):
             progress_tracker.update_step("streetview_verify")
             t0 = time.perf_counter()
             try:
@@ -944,6 +966,17 @@ Locale: set ``reverse_geocode_accept_language`` or standard ``Accept-Language`` 
             list(alternative_predictions or []),
         )
 
+        ui_fields = enrich_prediction_ui_fields(
+            primary_prediction=primary_prediction,
+            scene_geolocation_cues=scene_geolocation_cues,
+            geolocation_reading_axes=geolocation_reading_axes,
+            external_validation=external_validation,
+            ml_image_recognition=ml_image_recognition,
+            inference_debug=inference_debug,
+            model_used=model_used,
+            astronomy_constraints=astronomy_constraints,
+        )
+
         # Create response
         response = PredictionResponse(
             status="success",
@@ -973,6 +1006,17 @@ Locale: set ``reverse_geocode_accept_language`` or standard ``Accept-Language`` 
             wikipedia_place_context=wikipedia_place_context,
             timings_ms=timings_ms,
             inference_debug=inference_debug,
+            geoclip_ranked_predictions=ui_fields.get("geoclip_ranked_predictions"),
+            identified_elements=ui_fields.get("identified_elements"),
+            architecture_hints=ui_fields.get("architecture_hints"),
+            plant_geo_hints=ui_fields.get("plant_geo_hints"),
+            season_time_hints=ui_fields.get("season_time_hints"),
+            sky_image_metrics=ui_fields.get("sky_image_metrics"),
+            visual_time_of_day=ui_fields.get("visual_time_of_day"),
+            flower_bush_road_hints=ui_fields.get("flower_bush_road_hints"),
+            integrated_estimate=ui_fields.get("integrated_estimate"),
+            inference_models=ui_fields.get("inference_models"),
+            streetview_refinement=ui_fields.get("streetview_refinement"),
         )
 
         # Store result

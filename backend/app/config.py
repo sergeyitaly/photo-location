@@ -764,6 +764,15 @@ class Settings(BaseSettings):
         ),
     )
 
+    use_satellite_matching: bool = Field(
+        default=True,
+        description="Run satellite tile reverse-match on full (non-fast) vision predictions.",
+    )
+    use_streetview_verification: bool = Field(
+        default=True,
+        description="Run Street View CLIP verification on full (non-fast) vision predictions.",
+    )
+
     # Service timeouts (seconds) — prevent pipeline hangs
     satellite_match_timeout_seconds: float = Field(
         default=12.0,

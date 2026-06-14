@@ -1609,7 +1609,10 @@ async function predictLocation() {
             const cfgRes = await fetch(apiUrl('/config'));
             if (cfgRes.ok) {
                 serverConfig = await cfgRes.json();
-                includeStreetviewRefinement = Boolean(serverConfig.use_streetview_refinement && serverConfig.google_maps_configured);
+                includeStreetviewRefinement = Boolean(
+                    serverConfig.use_streetview_verification &&
+                        (serverConfig.google_maps_configured || serverConfig.streetview_api_configured),
+                );
             }
         } catch (_) {
             /* ignore */
@@ -2249,7 +2252,109 @@ function formatPrimaryPlaceResolution(primary) {
     };
 }
 
+function normalizePredictionForUi(prediction) {
+    if (!prediction || typeof prediction !== 'object') return prediction;
+    const p = { ...prediction };
+    const dbg = p.inference_debug && typeof p.inference_debug === 'object' ? p.inference_debug : {};
+
+    if (!Array.isArray(p.geoclip_ranked_predictions) || p.geoclip_ranked_predictions.length === 0) {
+        const geo = dbg.source_predictions && dbg.source_predictions.geoclip;
+        if (Array.isArray(geo) && geo.length > 0) p.geoclip_ranked_predictions = geo;
+    }
+
+    if (!Array.isArray(p.identified_elements) || p.identified_elements.length === 0) {
+        const ml = p.ml_image_recognition;
+        const labels = ml && Array.isArray(ml.scene_and_object_labels) ? ml.scene_and_object_labels : [];
+        if (labels.length > 0) {
+            p.identified_elements = labels.map((item) => ({
+                label: item.label || '',
+                confidence: item.score != null ? item.score : item.confidence,
+            }));
+        }
+    }
+
+    const sc = p.scene_geolocation_cues;
+    if ((!p.architecture_hints || typeof p.architecture_hints !== 'object') && sc && typeof sc === 'object') {
+        const cueItems = (arr) =>
+            (Array.isArray(arr) ? arr : []).map((c) => ({
+                label: c.label || '',
+                confidence: c.score != null ? c.score : c.confidence,
+            }));
+        const built = cueItems(sc.built_environment);
+        const palette = cueItems(sc.palette_and_finish);
+        const scale = cueItems(sc.design_and_upkeep_proxy);
+        if (built.length || palette.length || scale.length) {
+            p.architecture_hints = {
+                structural_edges: built,
+                color_palette: palette,
+                construction_scale: scale,
+                building_density: built.slice(0, 4),
+            };
+        }
+    }
+
+    if ((!Array.isArray(p.plant_geo_hints) || p.plant_geo_hints.length === 0) && sc && Array.isArray(sc.vegetation)) {
+        p.plant_geo_hints = sc.vegetation.slice(0, 8).map((v) => ({
+            plant_prompt: v.label || '',
+            native_region: 'scene cue (interpretive)',
+            confidence: v.score != null ? v.score : v.confidence,
+            latitude: null,
+            longitude: null,
+        }));
+    }
+
+    if (!p.streetview_refinement && dbg.streetview_verification) {
+        const sv = dbg.streetview_verification;
+        p.streetview_refinement = {
+            attempted: Boolean(sv.enabled || sv.api_configured),
+            swapped_primary: Boolean(sv.swapped_primary),
+            chosen_candidate_index: sv.chosen_candidate_index,
+            best_similarity: sv.best_similarity,
+            similarity_threshold: sv.similarity_threshold || 0.72,
+            candidates_evaluated: Array.isArray(sv.per_candidate) ? sv.per_candidate.length : 0,
+            detail: sv.detail || sv.summary || '',
+        };
+    }
+
+    if (!p.integrated_estimate && p.primary_prediction) {
+        const axes = p.geolocation_reading_axes || {};
+        const ev = p.external_validation || {};
+        const place = [p.primary_prediction.city, p.primary_prediction.country].filter(Boolean).join(', ');
+        p.integrated_estimate = {
+            headline: `**${place || 'Predicted location'}**`,
+            geo_narrative: axes.perspective_of_view || '',
+            scene_narrative: (sc && sc.interpretive_summary) || axes.building_proportions || '',
+            recommended_interpretation:
+                ev.summary_note ||
+                axes.estimated_wikipedia ||
+                'Verify the pin in satellite and street imagery before trusting exact place names.',
+            agreement_signals: ev.proof_satisfied ? ['Open-data cross-check passed for selected candidate.'] : [],
+            tension_signals: ev.enabled && ev.proof_satisfied === false ? ['Open-data proof incomplete.'] : [],
+            limitations: [
+                'Exact village or street identification is not verified without manual imagery checks.',
+            ],
+        };
+    }
+
+    if (!Array.isArray(p.inference_models) || p.inference_models.length === 0) {
+        const sources = Array.isArray(dbg.fusion_sources) ? dbg.fusion_sources : [];
+        const catalog = {
+            geoclip: ['GeoCLIP GPS retrieval', 'geolocation', 'geolocal/GeoCLIP'],
+            streetclip: ['StreetCLIP gazetteer', 'geolocation', 'geolocal/StreetCLIP'],
+            clip_zs: ['CLIP country + landmark softmax', 'geolocation', ''],
+            grid_search: ['Multi-resolution map grid', 'geolocation', ''],
+        };
+        p.inference_models = sources.map((key) => {
+            const row = catalog[key] || [key, 'geolocation', ''];
+            return { name: row[0], category: row[1], identifier: row[2] };
+        });
+    }
+
+    return p;
+}
+
 async function displayResults(prediction) {
+    prediction = normalizePredictionForUi(prediction);
     const primary = prediction && prediction.primary_prediction;
     if (!primary || typeof primary.latitude !== 'number' || typeof primary.longitude !== 'number') {
         showError('API returned no usable coordinates (primary_prediction missing). Check the JSON response in DevTools → Network.');
@@ -3153,6 +3258,23 @@ function displayExternalValidation(prediction) {
         })
         .join('');
 
+    const photoRows = (ev.wikipedia_photo_checks || [])
+        .map((row) => {
+            const ok = row.proven ? '✓' : '✗';
+            const cls = row.proven ? 'external-validation__ok' : 'external-validation__bad';
+            const sim =
+                row.similarity != null && !Number.isNaN(Number(row.similarity))
+                    ? Number(row.similarity).toFixed(3)
+                    : '—';
+            const thr =
+                row.threshold != null && !Number.isNaN(Number(row.threshold))
+                    ? Number(row.threshold).toFixed(3)
+                    : '—';
+            const title = row.best_photo_title || row.nearest_title || '—';
+            return `<tr><td>#${escapeHtml(String(row.candidate_index ?? ''))}</td><td class="${cls}">${ok}</td><td>${sim}</td><td>${thr}</td><td>${escapeHtml(String(title))}</td><td>${escapeHtml(row.detail || '')}</td></tr>`;
+        })
+        .join('');
+
     const proofBanner =
         ev.proof_satisfied === false
             ? `<p class="external-validation__note" style="border-left:3px solid #c45c26;padding-left:10px;margin-bottom:12px;" role="alert"><strong>Incomplete proof:</strong> no fusion candidate passed Wikipedia + relief + semantic checks together. The pin stays on the model’s primary guess — treat locations cautiously.</p>`
@@ -3182,6 +3304,13 @@ function displayExternalValidation(prediction) {
                 <table class="external-validation__table">
                     <thead><tr><th>Cand.</th><th>OK</th><th>Best CLIP</th><th>Threshold</th><th>Best article</th><th>Titles scanned</th><th>Detail</th></tr></thead>
                     <tbody>${semanticRows || '<tr><td colspan="7">No rows</td></tr>'}</tbody>
+                </table>
+            </div>
+            <div class="external-validation__table-wrap">
+                <h5 class="external-validation__sub">CLIP vs Wikimedia / Wikipedia photos</h5>
+                <table class="external-validation__table">
+                    <thead><tr><th>Cand.</th><th>OK</th><th>Best CLIP</th><th>Threshold</th><th>Best image</th><th>Detail</th></tr></thead>
+                    <tbody>${photoRows || '<tr><td colspan="6">No rows (photo gate off or no Commons images near candidates)</td></tr>'}</tbody>
                 </table>
             </div>
         </div>
@@ -3543,7 +3672,7 @@ async function updateGoogleReferencePanel(lat, lon) {
         const r = await fetch(apiUrl('/config'));
         if (r.ok) {
             const c = await r.json();
-            configured = Boolean(c.google_maps_configured);
+            configured = Boolean(c.google_maps_configured || c.streetview_api_configured);
         }
     } catch {
         configured = false;
@@ -3791,11 +3920,51 @@ function displayFeatureAnalysis(features) {
         `);
     }
 
-    if (features.detected_text) {
+    if (features.detected_text && features.detected_text.length > 0) {
         items.push(`
             <div class="feature-item">
-                <strong>📝 Text Detected</strong>
-                <p>${features.detected_text.join(', ')}</p>
+                <strong>Text Detected (OCR)</strong>
+                <p>${features.detected_text.map((t) => escapeHtml(String(t))).join(', ')}</p>
+            </div>
+        `);
+    }
+
+    if (features.infrastructure_type) {
+        items.push(`
+            <div class="feature-item">
+                <strong>Infrastructure (pixel heuristic)</strong>
+                <p>${escapeHtml(String(features.infrastructure_type))}</p>
+            </div>
+        `);
+    }
+
+    if (Array.isArray(features.detected_poles) && features.detected_poles.length > 0) {
+        items.push(`
+            <div class="feature-item">
+                <strong>Utility pole proxies</strong>
+                <p>${features.detected_poles
+                    .slice(0, 6)
+                    .map((p) => `${escapeHtml(p.type || 'pole')} (${((p.confidence || 0) * 100).toFixed(0)}%)`)
+                    .join(', ')}</p>
+            </div>
+        `);
+    }
+
+    if (Array.isArray(features.detected_road_lines) && features.detected_road_lines.length > 0) {
+        items.push(`
+            <div class="feature-item">
+                <strong>Road marking proxies</strong>
+                <p>${features.detected_road_lines.length} line-like region(s) in lower frame</p>
+            </div>
+        `);
+    }
+
+    const shadow = features.shadow_analysis;
+    if (shadow && typeof shadow === 'object' && shadow.shadow_direction_deg != null) {
+        items.push(`
+            <div class="feature-item">
+                <strong>Shadow analysis</strong>
+                <p>Direction ~${Number(shadow.shadow_direction_deg).toFixed(0)} deg (heuristic)</p>
             </div>
         `);
     }

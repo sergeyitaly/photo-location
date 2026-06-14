@@ -1776,6 +1776,251 @@ body.global-progress-open {
     display: none;
 }
 
+.google-maps-replica {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.google-maps-replica__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.google-maps-replica__img {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    min-height: 120px;
+    object-fit: cover;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.google-maps-replica__img--err {
+    opacity: 0.35;
+}
+
+.inference-models-pin-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 8px 0;
+}
+
+.results-drill {
+    margin-bottom: 14px;
+}
+
+.results-drill > summary {
+    cursor: pointer;
+    font-weight: 600;
+    padding: 10px 12px;
+}
+
+.google-maps-replica__title {
+    font-size: 1rem;
+    margin-bottom: 4px;
+    color: var(--text-primary);
+}
+
+.google-maps-replica__hint {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0;
+}
+
+.inference-models {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.inference-models__group-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+}
+
+.inference-models__list {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.85rem;
+}
+
+.inference-models__id {
+    color: var(--text-secondary);
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 0.78rem;
+}
+
+.streetview-refinement-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px 0;
+}
+
+/* Integrated estimate */
+.integrated-estimate__headline {
+    font-size: 1.05rem;
+    margin-bottom: 8px;
+}
+
+.integrated-estimate__section {
+    font-size: 0.92rem;
+    line-height: 1.5;
+    margin-bottom: 10px;
+}
+
+.integrated-estimate__wrap {
+    margin-bottom: 12px;
+}
+
+.integrated-estimate__wrap h5 {
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+    color: var(--text-primary);
+}
+
+.integrated-estimate__wrap ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+/* Wikipedia & Commons nearby */
+.wikipedia-place__title {
+    font-size: 1rem;
+    margin-bottom: 6px;
+}
+
+.wikipedia-place__note {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.wikipedia-place__synthesis {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 10px;
+}
+
+.wikipedia-place__adjustment {
+    font-size: 0.88rem;
+    line-height: 1.45;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    background: #f1f5f9;
+    border-radius: 8px;
+}
+
+.wikipedia-place__list {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.88rem;
+}
+
+.wiki-nearby__item {
+    margin-bottom: 10px;
+    line-height: 1.45;
+}
+
+.wiki-nearby__snippet {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-top: 2px;
+}
+
+/* Identified scene elements */
+.identified-elements__location {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.identified-elements__list {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.88rem;
+}
+
+.identified-elements__conf,
+.architecture-hints__conf,
+.season-time-hints__conf,
+.flower-bush-road-hints__conf,
+.plant-hints__conf {
+    display: inline-block;
+    min-width: 38px;
+    font-variant-numeric: tabular-nums;
+    color: var(--secondary-color);
+}
+
+/* Shared group layout: architecture / season-time / flower-bush-road hints */
+.architecture-hints__group,
+.season-time-hints__group,
+.flower-bush-road-hints__group {
+    margin-bottom: 14px;
+}
+
+.architecture-hints__group-title,
+.season-time-hints__group-title,
+.flower-bush-road-hints__group-title {
+    font-size: 0.95rem;
+    margin-bottom: 6px;
+    color: var(--text-primary);
+}
+
+.architecture-hints__list,
+.season-time-hints__list,
+.flower-bush-road-hints__list {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.85rem;
+}
+
+.season-time__metrics,
+.season-time__visual {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+/* Plant / vegetation geo hints */
+.plant-hints__list {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.88rem;
+}
+
+.plant-hints__item {
+    margin-bottom: 4px;
+}
+
+.plant-hints__region,
+.plant-hints__ll {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+.prediction-maps-link {
+    font-size: 0.75rem;
+}
+
+@media (max-width: 720px) {
+    .google-maps-replica__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Compact layout adjustments */
 .layout-compact .pipeline-section {
     display: none;

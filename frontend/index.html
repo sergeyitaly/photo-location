@@ -399,6 +399,14 @@
                             <span class="label">Model Used:</span>
                             <span id="modelUsed" class="value">—</span>
                         </div>
+                        <div id="inferenceModelsPinWrap" class="inference-models-pin-wrap" style="display:none;">
+                            <span class="label">Models in fusion:</span>
+                            <div id="inferenceModelsPin" class="inference-models-pin"></div>
+                        </div>
+                        <div class="info-row" id="referenceCompareRow" style="display:none;">
+                            <span class="label">Commons reference distance:</span>
+                            <span id="referenceErrorKm" class="value">—</span>
+                        </div>
                         <div class="info-row">
                             <span class="label">Processing Time:</span>
                             <span id="processingTime" class="value">—</span>
@@ -457,12 +465,92 @@
 
                     <!-- Map Embed -->
                     <div id="mapContainer" class="map-container"></div>
+
+                    <div id="googleMapsReplicaBlock" class="google-maps-replica" style="display:none;" role="region" aria-label="Google Maps reference imagery">
+                        <h4 class="google-maps-replica__title">Reference imagery (Google Maps API)</h4>
+                        <p id="googleMapsReplicaHint" class="google-maps-replica__hint"></p>
+                        <div class="google-maps-replica__grid">
+                            <img id="googleStaticMapImg" class="google-maps-replica__img" alt="" loading="lazy" />
+                            <img id="googleStreetViewImg" class="google-maps-replica__img" alt="" loading="lazy" />
+                        </div>
+                    </div>
+
+                    <div id="streetviewRefinementRow" class="streetview-refinement-row" style="display:none;">
+                        <span class="label">Street View refinement:</span>
+                        <span id="streetviewRefinementText" class="value"></span>
+                    </div>
                 </div>
 
-                <!-- Alternative Predictions -->
+                <details id="interpretationCluster" class="results-drill prediction-card" style="display:none;">
+                    <summary>Interpretation &amp; Wikipedia context</summary>
+                    <div id="integratedEstimateBlock" class="integrated-estimate" style="display:none;">
+                        <h4 id="integratedHeadline" class="integrated-estimate__headline"></h4>
+                        <div id="integratedGeo" class="integrated-estimate__section"></div>
+                        <div id="integratedScene" class="integrated-estimate__section"></div>
+                        <div id="integratedRec" class="integrated-estimate__section"></div>
+                        <div id="integratedAgreementWrap" class="integrated-estimate__wrap">
+                            <h5>Agreement signals</h5>
+                            <ul id="integratedAgreement"></ul>
+                        </div>
+                        <div id="integratedTensionWrap" class="integrated-estimate__wrap">
+                            <h5>Tension signals</h5>
+                            <ul id="integratedTension"></ul>
+                        </div>
+                        <div class="integrated-estimate__wrap">
+                            <h5>Limitations</h5>
+                            <ul id="integratedLimits"></ul>
+                        </div>
+                    </div>
+                    <div id="wikipediaPlaceBlock" class="wikipedia-place" style="display:none;">
+                        <h4 class="wikipedia-place__title">Wikipedia &amp; Commons nearby</h4>
+                        <p id="wikipediaPlaceNote" class="wikipedia-place__note"></p>
+                        <div id="wikipediaSynthesisBlock" class="wikipedia-place__synthesis" style="display:none;"></div>
+                        <div id="wikipediaPinAdjustment" class="wikipedia-place__adjustment" style="display:none;"></div>
+                        <ul id="wikipediaArticlesList" class="wikipedia-place__list"></ul>
+                    </div>
+                </details>
+
+                <details id="resultsGroupHypotheses" class="results-drill prediction-card" style="display:none;">
+                    <summary>GeoCLIP ranks &amp; alternatives</summary>
+                    <div id="geoclipRanksContainer" class="geoclip-ranks" style="display:none;">
+                        <h4>GeoCLIP ranked hypotheses</h4>
+                        <div id="geoclipRanksList" class="geoclip-ranks__list"></div>
+                    </div>
                 <div id="alternativesContainer" style="display:none;">
-                    <h3>📍 Alternative Predictions</h3>
+                    <h3>Alternative Predictions</h3>
                     <div id="alternativesList" class="alternatives-list"></div>
+                </div>
+                </details>
+
+                <details id="resultsGroupExtras" class="results-drill prediction-card" style="display:none;">
+                    <summary>Scene cues &amp; feature drill-down</summary>
+
+                <div id="identifiedElementsBlock" class="prediction-card" style="display:none;">
+                    <h3>Identified scene elements (CLIP)</h3>
+                    <p id="identifiedElementsLocation" class="identified-elements__location"></p>
+                    <ul id="identifiedElementsList" class="identified-elements__list"></ul>
+                </div>
+
+                <div id="architectureHintsBlock" class="prediction-card" style="display:none;">
+                    <h3>Built-form / facade CLIP cues</h3>
+                    <div id="architectureHintsSections"></div>
+                </div>
+
+                <div id="plantHintsBlock" class="prediction-card" style="display:none;">
+                    <h3>Plant / vegetation geo hints</h3>
+                    <ul id="plantHintsList" class="plant-hints__list"></ul>
+                </div>
+
+                <div id="seasonTimeBlock" class="prediction-card" style="display:none;">
+                    <h3>Season, sky &amp; light cues</h3>
+                    <p id="seasonTimeSkyMetrics" class="season-time__metrics"></p>
+                    <p id="seasonTimeVisualEstimate" class="season-time__visual"></p>
+                    <div id="seasonTimeSections"></div>
+                </div>
+
+                <div id="flowerBushRoadBlock" class="prediction-card" style="display:none;">
+                    <h3>Flower, bush &amp; road surface cues</h3>
+                    <div id="flowerBushRoadSections"></div>
                 </div>
 
                 <!-- Feature Analysis -->
@@ -494,6 +582,7 @@
                     </p>
                     <div id="sceneGeolocationCuesContent"></div>
                 </div>
+                </details>
 
                 <!-- Actions -->
                 <div class="actions">

@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.api.routes import router
 from app.api.gazetteer_routes import router as gazetteer_router
+from app.api.maps_routes import router as maps_router
 from app.inference.model_warmup import warmup_torch_models
 from app.services.llm_detective import warmup_ollama_model
 from app.services.gazetteer_autoload import start_gazetteer_autoload_background
@@ -49,6 +50,7 @@ app.add_middleware(
 # Include API routes
 app.include_router(router)
 app.include_router(gazetteer_router)
+app.include_router(maps_router)
 
 # Serve static frontend files
 frontend_path = Path(__file__).parent.parent.parent / "frontend"
