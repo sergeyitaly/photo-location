@@ -31,9 +31,9 @@ backend/app/data/generated/*.json
 .claude/
 .kiro/
 
-# Model / HF cache (if stored locally)
+# Model / HF cache (if stored locally — not backend/app/models Python package)
 .cache/
-models/
+/models/
 *.pt
 *.bin
 *.safetensors
